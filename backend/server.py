@@ -125,18 +125,19 @@ class AdvancedFitnessTrainer:
             return response
             
         except Exception as e:
-            logger.error(f"Error getting OpenAI response: {str(e)}")
+            logger.error(f"Error getting Gemini response: {str(e)}")
             return f"""שלום! 👋 נתקלתי בבעיה טכנית כרגע, אבל אני כאן בשביל לעזור לך!
 
-בינתיים, בואו נתחיל ידנית:
+🔧 **בעיה טכנית זמנית**
+נסה שוב בעוד רגע, או בינתיים ספר לי:
 
-🎯 **ספר לי קצת על עצמך:**
-- מה המטרה שלך (שרידת שומן, בניית שריר, שיפור כושר)?
+🎯 **בואו נתחיל ידנית:**
+- מה המטרה שלך בכושר (שרידת שומן, בניית שריר, שיפור כושר)?
 - מה רמת הכושר הנוכחית שלך?
 - כמה זמן אתה יכול להקדיש לאימונים?
 - האם יש לך גישה לחדר כושר או אתה מתאמן בבית?
 
-ברגע שהבעיה הטכנית תיפתר, אני אוכל לתת לך תוכנית מותאמת אישית! 💪"""
+💪 ברגע שהבעיה תיפתר, אני אוכל לתת לך ניתוח מעמיק ותוכנית מותאמת!"""
 
 # Initialize Gemini trainer
 gemini_api_key = os.environ.get('GEMINI_API_KEY')
