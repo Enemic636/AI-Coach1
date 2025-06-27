@@ -138,12 +138,12 @@ class AdvancedFitnessTrainer:
 
 ברגע שהבעיה הטכנית תיפתר, אני אוכל לתת לך תוכנית מותאמת אישית! 💪"""
 
-# Initialize OpenAI trainer
-openai_api_key = os.environ.get('OPENAI_API_KEY')
-if not openai_api_key:
-    raise ValueError("OPENAI_API_KEY environment variable is required")
+# Initialize Gemini trainer
+gemini_api_key = os.environ.get('GEMINI_API_KEY')
+if not gemini_api_key:
+    raise ValueError("GEMINI_API_KEY environment variable is required")
 
-fitness_trainer = AdvancedFitnessTrainer(openai_api_key)
+fitness_trainer = AdvancedFitnessTrainer(gemini_api_key)
 
 # Pydantic Models
 class ChatMessage(BaseModel):
