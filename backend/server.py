@@ -119,7 +119,7 @@ class AdvancedFitnessTrainer:
             # Create user message
             message = UserMessage(text=enhanced_message)
             
-            # Get response from OpenAI
+            # Get response from Gemini
             response = await chat.send_message(message)
             
             return response
