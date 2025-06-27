@@ -109,12 +109,12 @@ class AdvancedFitnessTrainer:
                 
                 enhanced_message = user_message + profile_context
 
-            # Create a new LLM chat instance for each conversation
+            # Create a new LLM chat instance for each conversation using Gemini
             chat = LlmChat(
                 api_key=self.api_key,
-                session_id=f"advanced_fitness_{user_id}",
+                session_id=f"gemini_fitness_{user_id}",
                 system_message=self.system_message
-            ).with_model("openai", "gpt-4o").with_max_tokens(3000)
+            ).with_model("gemini", "gemini-2.0-flash").with_max_tokens(4000)
             
             # Create user message
             message = UserMessage(text=enhanced_message)
