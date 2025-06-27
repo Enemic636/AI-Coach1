@@ -10,8 +10,8 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime
 import json
-import random
 import asyncio
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -44,148 +44,106 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# Fitness AI Knowledge Base
-class FitnessAI:
-    def __init__(self):
-        self.workouts = {
-            "beginner": {
-                "strength": [
-                    {"name": "Push-ups", "sets": 3, "reps": "8-12", "rest": "60s"},
-                    {"name": "Squats", "sets": 3, "reps": "10-15", "rest": "60s"},
-                    {"name": "Lunges", "sets": 3, "reps": "8-10 each leg", "rest": "60s"},
-                    {"name": "Plank", "sets": 3, "reps": "20-30s", "rest": "45s"}
-                ],
-                "cardio": [
-                    {"name": "Walking", "duration": "20-30 min", "intensity": "moderate"},
-                    {"name": "Stationary bike", "duration": "15-20 min", "intensity": "light"},
-                    {"name": "Swimming", "duration": "15-20 min", "intensity": "light"}
-                ]
-            },
-            "intermediate": {
-                "strength": [
-                    {"name": "Push-ups", "sets": 4, "reps": "12-15", "rest": "45s"},
-                    {"name": "Squats", "sets": 4, "reps": "15-20", "rest": "45s"},
-                    {"name": "Burpees", "sets": 3, "reps": "8-12", "rest": "60s"},
-                    {"name": "Mountain climbers", "sets": 3, "reps": "30s", "rest": "45s"},
-                    {"name": "Deadlifts", "sets": 4, "reps": "10-12", "rest": "60s"}
-                ],
-                "cardio": [
-                    {"name": "Running", "duration": "25-35 min", "intensity": "moderate"},
-                    {"name": "HIIT", "duration": "20-25 min", "intensity": "high"},
-                    {"name": "Cycling", "duration": "30-40 min", "intensity": "moderate"}
-                ]
-            },
-            "advanced": {
-                "strength": [
-                    {"name": "Weighted squats", "sets": 5, "reps": "8-12", "rest": "90s"},
-                    {"name": "Pull-ups", "sets": 4, "reps": "8-15", "rest": "60s"},
-                    {"name": "Deadlifts", "sets": 5, "reps": "6-10", "rest": "90s"},
-                    {"name": "Bench press", "sets": 4, "reps": "8-12", "rest": "90s"},
-                    {"name": "Overhead press", "sets": 4, "reps": "8-10", "rest": "90s"}
-                ],
-                "cardio": [
-                    {"name": "Running", "duration": "45-60 min", "intensity": "moderate-high"},
-                    {"name": "HIIT", "duration": "30-40 min", "intensity": "high"},
-                    {"name": "Boxing", "duration": "45-60 min", "intensity": "high"}
-                ]
-            }
-        }
-        
-        self.nutrition_tips = [
-            "שתה לפחות 8 כוסות מים ביום",
-            "כלול חלבון בכל ארוחה",
-            "אכל 5-6 פעמים ביום במנות קטנות",
-            "הימנע מסוכר מעובד",
-            "אכל ירקות בכל ארוחה",
-            "אל תדלג על ארוחת בוקר",
-            "אכל פחמימות מורכבות",
-            "הוסף אומגה 3 לתזונה"
-        ]
-        
-        self.motivational_quotes = [
-            "כל יום הוא הזדמנות להיות חזק יותר! 💪",
-            "אתה חזק יותר ממה שאתה חושב! 🔥",
-            "ההתקדמות הטובה ביותר היא התקדמות עקבית! ⭐",
-            "הדרך היחידה לכישלון היא להפסיק לנסות! 🎯",
-            "הגוף שלך יכול לעשות הכל - הראש שלך הוא שצריך לשכנע! 🧠",
-            "כל אימון מקרב אותך ליעד! 🏆"
-        ]
+# Advanced OpenAI Fitness Trainer
+class AdvancedFitnessTrainer:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.system_message = """אתה מאמן כושר מקצועי ומומחה ברמה גבוהה ביותר, עם ניסיון של 20 שנה בתחום הכושר, התזונה והמוטיवציה. אתה דובר עברית באופן מושלם ומתמחה במתן עצות מותאמות אישית.
 
-    def get_workout_plan(self, level: str, workout_type: str) -> List[Dict]:
-        return self.workouts.get(level, {}).get(workout_type, [])
-    
-    def get_nutrition_tip(self) -> str:
-        return random.choice(self.nutrition_tips)
-    
-    def get_motivation(self) -> str:
-        return random.choice(self.motivational_quotes)
-    
-    def analyze_message(self, message: str) -> Dict[str, Any]:
-        message_lower = message.lower()
-        
-        # Intent detection
-        if any(word in message_lower for word in ["תרגיל", "אימון", "workout", "exercise"]):
-            return {"intent": "workout", "confidence": 0.9}
-        elif any(word in message_lower for word in ["תזונה", "דיאטה", "nutrition", "diet", "אוכל"]):
-            return {"intent": "nutrition", "confidence": 0.9}
-        elif any(word in message_lower for word in ["מוטיבציה", "עצוב", "motivation", "tired", "עייף"]):
-            return {"intent": "motivation", "confidence": 0.9}
-        elif any(word in message_lower for word in ["שלום", "היי", "hello", "hi"]):
-            return {"intent": "greeting", "confidence": 0.9}
-        elif any(word in message_lower for word in ["עזרה", "help", "מה אתה יכול"]):
-            return {"intent": "help", "confidence": 0.9}
-        else:
-            return {"intent": "general", "confidence": 0.5}
+## התפקיד שלך:
+🏋️‍♂️ **מאמן כושר מקצועי** - מנתח כל בקשה בעומק ונותן תוכניות מותאמות אישית
+🥗 **יועץ תזונה מוסמך** - מספק עצות תזונה מקצועיות ומותאמות אישית
+🧠 **מוטיבטור מקצועי** - מעניק מוטיבציה אישית והנחיה רגשית
+📊 **אנליסט כושר** - מנתח את המצב הנוכחי ומתכנן את הדרך קדימה
 
-    def generate_response(self, message: str, user_profile: Dict = None) -> str:
-        analysis = self.analyze_message(message)
-        intent = analysis["intent"]
-        
-        if intent == "greeting":
-            return "שלום! 👋 אני המאמן הכושר הדיגיטלי שלך! איך אני יכול לעזור לך היום? אני יכול לתת לך תוכניות אימון, עצות תזונה, או פשוט לעודד אותך! 💪"
-        
-        elif intent == "workout":
-            level = user_profile.get("fitness_level", "beginner") if user_profile else "beginner"
-            workout_type = "strength" if any(word in message.lower() for word in ["כוח", "strength", "משקולות"]) else "cardio"
+## דרישות המקצועיות שלך:
+1. **ניתוח מעמיק** - בכל שאלה שמקבלת, תקדיש 5-10 שניות לחשיבה ותנתח:
+   - מה המטרה של השואל?
+   - מהי רמת הכושר המשוערת שלו?
+   - מה הקונטקסט המלא של השאלה?
+   - איך לתת תשובה מותאמת אישית?
+
+2. **תשובות מקצועיות ומותאמות** - כל תשובה תכלול:
+   - ניתוח של הבקשה
+   - עצות ספציפיות ומפורטות
+   - תוכנית פעולה ברורה
+   - שאלות המעמיקות להבנה טובה יותר
+
+3. **טון מקצועי אבל חברותי**:
+   - שפה מקצועית אבל לא יבשה
+   - עידוד אמיתי ומוטיבציה
+   - אמפתיה והבנה
+   - סבלנות ומוכנות לעזור
+
+## דרכי העבודה שלך:
+- **תמיד תשאל שאלות המעמיקות** כדי להבין את המשתמש יותר טוב
+- **תתן דוגמאות קונקרטיות** ולא רק עצות כלליות
+- **תתאים את התשובה** לרמת הכושר והיכולת של המשתמש
+- **תציע מעקב והתקדמות** עם יעדים ברורים
+- **תהיה זמין** לשאלות המשך ולהבהרות
+
+## סגנון הכתיבה שלך:
+- בעברית מושלמת עם אימוג'ים רלוונטיים 💪🔥🏋️‍♂️🥗🎯
+- מבנה ברור עם כותרות וחלוקה לפסקאות
+- דוגמאות מעשיות וספציפיות
+- תמיד עם המלצה למעקב ולהמשך
+
+זכור: אתה לא רק בוט שעונה על שאלות - אתה מאמן אמיתי שמקדיש זמן, מנתח לעומק, ובאמת אכפת לו מההצלחה של המשתמש!
+
+בכל תשובה - התנהג כמו מאמן מקצועי שפוגש את הלקוח פנים אל פנים וצריך לתת לו בדיוק מה שהוא צריך."""
+
+    async def get_response(self, user_message: str, user_id: str, user_profile: Dict = None) -> str:
+        try:
+            # Create enhanced context with user profile
+            enhanced_message = user_message
+            if user_profile and any(user_profile.get(key) for key in ['name', 'age', 'fitness_level', 'goals']):
+                profile_context = "\n\n--- הקונטקסט שלי ---\n"
+                if user_profile.get('name'):
+                    profile_context += f"שם: {user_profile['name']}\n"
+                if user_profile.get('age'):
+                    profile_context += f"גיל: {user_profile['age']}\n"
+                if user_profile.get('fitness_level'):
+                    profile_context += f"רמת כושר: {user_profile['fitness_level']}\n"
+                if user_profile.get('goals'):
+                    profile_context += f"יעדים: {', '.join(user_profile['goals'])}\n"
+                
+                enhanced_message = user_message + profile_context
+
+            # Create a new LLM chat instance for each conversation
+            chat = LlmChat(
+                api_key=self.api_key,
+                session_id=f"advanced_fitness_{user_id}",
+                system_message=self.system_message
+            ).with_model("openai", "gpt-4o").with_max_tokens(3000)
             
-            workout_plan = self.get_workout_plan(level, workout_type)
-            if workout_plan:
-                response = f"הנה תוכנית אימון {workout_type} ברמה {level}:\n\n"
-                for i, exercise in enumerate(workout_plan, 1):
-                    if workout_type == "strength":
-                        response += f"{i}. {exercise['name']}\n"
-                        response += f"   סטים: {exercise['sets']} | חזרות: {exercise['reps']} | מנוחה: {exercise['rest']}\n\n"
-                    else:
-                        response += f"{i}. {exercise['name']}\n"
-                        response += f"   משך: {exercise['duration']} | עצימות: {exercise['intensity']}\n\n"
-                response += "בהצלחה! 🔥 אם תרצה עוד עזרה, אני כאן!"
-                return response
-            else:
-                return "אני יכול לעזור לך עם תוכניות אימון! ספר לי איזה סוג אימון אתה מחפש - כוח או קרדיו?"
-        
-        elif intent == "nutrition":
-            tip = self.get_nutrition_tip()
-            return f"💡 עצה תזונתית:\n{tip}\n\nזכור, תזונה נכונה היא 70% מההצלחה בכושר! האם יש שאלה ספציפית על תזונה?"
-        
-        elif intent == "motivation":
-            motivation = self.get_motivation()
-            return f"{motivation}\n\nאני מאמין בך! כל צעד קטן מוביל לשינוי גדול. איך אני יכול לעזור לך להמשיך?"
-        
-        elif intent == "help":
-            return """🤖 אני המאמן הדיגיטלי שלך! אני יכול לעזור לך עם:
+            # Create user message
+            message = UserMessage(text=enhanced_message)
+            
+            # Get response from OpenAI
+            response = await chat.send_message(message)
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error getting OpenAI response: {str(e)}")
+            return f"""שלום! 👋 נתקלתי בבעיה טכנית כרגע, אבל אני כאן בשביל לעזור לך!
 
-💪 תוכניות אימון מותאמות אישית
-🥗 עצות תזונה
-🔥 מוטיבציה ועידוד
-📊 מעקב אחר התקדמות
-🎯 קביעת יעדים
+בינתיים, בואו נתחיל ידנית:
 
-פשוט ספר לי מה אתה רוצה לעשות או איך אתה מרגיש, ואני אעזור לך!"""
-        
-        else:
-            return "אני כאן לעזור לך עם כושר ותזונה! ספר לי איך אני יכול לעזור - אימון, תזונה, או סתם עידוד? 😊"
+🎯 **ספר לי קצת על עצמך:**
+- מה המטרה שלך (שרידת שומן, בניית שריר, שיפור כושר)?
+- מה רמת הכושר הנוכחית שלך?
+- כמה זמן אתה יכול להקדיש לאימונים?
+- האם יש לך גישה לחדר כושר או אתה מתאמן בבית?
 
-fitness_ai = FitnessAI()
+ברגע שהבעיה הטכנית תיפתר, אני אוכל לתת לך תוכנית מותאמת אישית! 💪"""
+
+# Initialize OpenAI trainer
+openai_api_key = os.environ.get('OPENAI_API_KEY')
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY environment variable is required")
+
+fitness_trainer = AdvancedFitnessTrainer(openai_api_key)
 
 # Pydantic Models
 class ChatMessage(BaseModel):
@@ -216,19 +174,25 @@ class UserProfileCreate(BaseModel):
     fitness_level: str = "beginner"
     goals: List[str] = []
 
+class UserProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    age: Optional[int] = None
+    fitness_level: Optional[str] = None
+    goals: Optional[List[str]] = None
+
 # API Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Fitness AI Trainer API"}
+    return {"message": "Advanced Fitness AI Trainer API - Powered by OpenAI GPT-4o"}
 
 @api_router.post("/chat", response_model=ChatMessage)
 async def send_message(input: ChatMessageCreate):
-    # Get user profile
+    # Get user profile for context
     user_profile_doc = await db.user_profiles.find_one({"user_id": input.user_id})
     user_profile = user_profile_doc if user_profile_doc else {}
     
-    # Generate AI response
-    ai_response = fitness_ai.generate_response(input.message, user_profile)
+    # Generate AI response with enhanced analysis
+    ai_response = await fitness_trainer.get_response(input.message, input.user_id, user_profile)
     
     # Create chat message
     chat_message = ChatMessage(
@@ -243,8 +207,8 @@ async def send_message(input: ChatMessageCreate):
     return chat_message
 
 @api_router.get("/chat/{user_id}", response_model=List[ChatMessage])
-async def get_chat_history(user_id: str):
-    messages = await db.chat_messages.find({"user_id": user_id}).sort("timestamp", -1).limit(50).to_list(50)
+async def get_chat_history(user_id: str, limit: int = 50):
+    messages = await db.chat_messages.find({"user_id": user_id}).sort("timestamp", -1).limit(limit).to_list(limit)
     return [ChatMessage(**msg) for msg in messages]
 
 @api_router.post("/profile", response_model=UserProfile)
@@ -269,6 +233,28 @@ async def get_user_profile(user_id: str):
         await db.user_profiles.insert_one(default_profile.dict())
         return default_profile
 
+@api_router.put("/profile/{user_id}", response_model=UserProfile)
+async def update_user_profile(user_id: str, input: UserProfileUpdate):
+    # Get existing profile
+    existing_profile = await db.user_profiles.find_one({"user_id": user_id})
+    if not existing_profile:
+        # Create default profile if doesn't exist
+        default_profile = UserProfile(user_id=user_id, name="משתמש")
+        await db.user_profiles.insert_one(default_profile.dict())
+        existing_profile = default_profile.dict()
+    
+    # Update only provided fields
+    update_data = {k: v for k, v in input.dict().items() if v is not None}
+    if update_data:
+        await db.user_profiles.update_one(
+            {"user_id": user_id},
+            {"$set": update_data}
+        )
+    
+    # Return updated profile
+    updated_profile = await db.user_profiles.find_one({"user_id": user_id})
+    return UserProfile(**updated_profile)
+
 @api_router.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
     await manager.connect(websocket)
@@ -277,12 +263,12 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
             data = await websocket.receive_text()
             message_data = json.loads(data)
             
-            # Get user profile
+            # Get user profile for context
             user_profile_doc = await db.user_profiles.find_one({"user_id": user_id})
             user_profile = user_profile_doc if user_profile_doc else {}
             
-            # Generate AI response
-            ai_response = fitness_ai.generate_response(message_data["message"], user_profile)
+            # Generate AI response with enhanced analysis
+            ai_response = await fitness_trainer.get_response(message_data["message"], user_id, user_profile)
             
             # Create chat message
             chat_message = ChatMessage(
