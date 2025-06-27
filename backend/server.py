@@ -44,7 +44,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# Advanced OpenAI Fitness Trainer
+# Advanced Gemini Fitness Trainer
 class AdvancedFitnessTrainer:
     def __init__(self, api_key: str):
         self.api_key = api_key
