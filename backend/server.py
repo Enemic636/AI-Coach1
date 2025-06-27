@@ -184,7 +184,7 @@ class UserProfileUpdate(BaseModel):
 # API Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Advanced Fitness AI Trainer API - Powered by OpenAI GPT-4o"}
+    return {"message": "Advanced Fitness AI Trainer API - Powered by Gemini"}
 
 @api_router.post("/chat", response_model=ChatMessage)
 async def send_message(input: ChatMessageCreate):
