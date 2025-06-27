@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
 
@@ -9,30 +9,45 @@ const App = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [userId] = useState(() => 'user_' + Date.now()); // Simple user ID generation
+  const [userId] = useState(() => 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [rateLimitWarning, setRateLimitWarning] = useState(false);
+  const [lastMessageTime, setLastMessageTime] = useState(0);
   const messagesEndRef = useRef(null);
 
-  const scrollToBottom = () => {
+  // Production optimizations
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
+
+  // Network status monitoring
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
-    // Load chat history on component mount
     loadChatHistory();
-    // Initialize user profile
     initializeUserProfile();
   }, []);
 
   const loadChatHistory = async () => {
     try {
       const response = await axios.get(`${API}/chat/${userId}`);
-      const chatHistory = response.data.reverse(); // Reverse to show oldest first
+      const chatHistory = response.data.reverse();
       
-      // Convert to message format
       const formattedMessages = [];
       chatHistory.forEach(chat => {
         formattedMessages.push({
@@ -70,6 +85,24 @@ const App = () => {
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
+    if (!isOnline) {
+      alert('אין חיבור לאינטרנט. אנא בדוק את החיבור שלך.');
+      return;
+    }
+
+    // Rate limiting check
+    const now = Date.now();
+    if (now - lastMessageTime < 2000) { // 2 seconds minimum between messages
+      setRateLimitWarning(true);
+      setTimeout(() => setRateLimitWarning(false), 3000);
+      return;
+    }
+
+    // Message length validation
+    if (newMessage.length > 2000) {
+      alert('ההודעה ארוכה מדי. אנא שלח הודעה עד 2000 תווים.');
+      return;
+    }
 
     const userMessage = {
       id: Date.now() + '_user',
@@ -81,11 +114,17 @@ const App = () => {
     setMessages(prev => [...prev, userMessage]);
     setNewMessage('');
     setIsLoading(true);
+    setLastMessageTime(now);
 
     try {
       const response = await axios.post(`${API}/chat`, {
         user_id: userId,
         message: newMessage
+      }, {
+        timeout: 30000, // 30 second timeout
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       const aiMessage = {
@@ -98,13 +137,26 @@ const App = () => {
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
-      const errorMessage = {
+      
+      let errorMessage = 'מצטער, נכשלתי בשליחת ההודעה. נסה שוב.';
+      
+      if (error.response?.status === 429) {
+        errorMessage = 'שלחת יותר מדי הודעות. אנא המתן רגע ונסה שוב.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'בעיה זמנית בשרת. אנא נסה שוב בעוד רגע.';
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = 'הבקשה ארכה יותר מדי. נסה שוב.';
+      } else if (!isOnline) {
+        errorMessage = 'אין חיבור לאינטרנט. בדוק את החיבור שלך.';
+      }
+
+      const errorMsg = {
         id: Date.now() + '_error',
-        text: 'מצטער, נכשלתי בשליחת ההודעה. נסה שוב.',
+        text: errorMessage,
         sender: 'ai',
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
     }
@@ -124,18 +176,47 @@ const App = () => {
     });
   };
 
+  const quickActions = [
+    { text: 'שלום! אני רוצה להתחיל להתאמן', icon: '💪' },
+    { text: 'איך אני יכול לשפר את התזונה שלי?', icon: '🥗' },
+    { text: 'אני צריך מוטיבציה להמשיך', icon: '🔥' },
+    { text: 'תן לי תוכנית אימון למתחילים', icon: '🏋️‍♂️' }
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100" dir="rtl">
+      {/* Network Status Banner */}
+      {!isOnline && (
+        <div className="bg-red-500 text-white text-center py-2">
+          אין חיבור לאינטרנט - חלק מהתכונות עלולות לא לעבוד
+        </div>
+      )}
+
+      {/* Rate Limit Warning */}
+      {rateLimitWarning && (
+        <div className="bg-yellow-500 text-white text-center py-2">
+          אנא המתן רגע בין הודעות
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center space-x-3 space-x-reverse">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-lg">💪</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3 space-x-reverse">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-lg">💪</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">המאמן הדיגיטלי</h1>
+                <p className="text-sm text-gray-500">מאמן הכושר האישי שלך - גרסת פרודקשן</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">המאמן הדיגיטלי</h1>
-              <p className="text-sm text-gray-500">מאמن הכושר האישי שלך</p>
+            <div className="flex items-center">
+              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <span className="text-xs text-gray-500 mr-2">
+                {isOnline ? 'מחובר' : 'לא מחובר'}
+              </span>
             </div>
           </div>
         </div>
@@ -151,40 +232,34 @@ const App = () => {
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">🤖</div>
                 <h3 className="text-xl font-semibold text-gray-700 mb-2">ברוך הבא למאמן הדיגיטלי!</h3>
-                <p className="text-gray-500">שלח הודעה כדי להתחיל את המסע שלך לכושר</p>
-                <div className="mt-6 flex flex-wrap gap-2 justify-center">
-                  <button
-                    onClick={() => setNewMessage('שלום! אני רוצה להתחיל להתאמן')}
-                    className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm hover:bg-blue-200 transition-colors"
-                  >
-                    💪 רוצה להתחיל להתאמן
-                  </button>
-                  <button
-                    onClick={() => setNewMessage('איך אני יכול לשפר את התזונה שלי?')}
-                    className="px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm hover:bg-green-200 transition-colors"
-                  >
-                    🥗 עצות תזונה
-                  </button>
-                  <button
-                    onClick={() => setNewMessage('אני צריך מוטיבציה')}
-                    className="px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm hover:bg-purple-200 transition-colors"
-                  >
-                    🔥 מוטיבציה
-                  </button>
+                <p className="text-gray-500 mb-6">מאמן כושר מקצועי מבוסס AI שיעזור לך להגיע ליעדיך</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
+                  {quickActions.map((action, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setNewMessage(action.text)}
+                      className="flex items-center justify-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg text-blue-700 hover:from-blue-100 hover:to-indigo-100 transition-all duration-200 hover:shadow-md"
+                      disabled={isLoading}
+                    >
+                      <span className="text-xl ml-2">{action.icon}</span>
+                      <span className="text-sm font-medium">{action.text}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             ) : (
               messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} message-bubble`}
                 >
                   <div
                     className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
                       message.sender === 'user'
-                        ? 'bg-blue-500 text-white rounded-br-md'
-                        : 'bg-gray-100 text-gray-800 rounded-bl-md'
-                    }`}
+                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md'
+                        : 'bg-gray-50 text-gray-800 rounded-bl-md border border-gray-200'
+                    } transition-all duration-200`}
                   >
                     <div className="whitespace-pre-wrap text-sm leading-relaxed">
                       {message.text}
@@ -203,11 +278,14 @@ const App = () => {
             
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3 max-w-xs">
+                <div className="bg-gray-50 rounded-2xl rounded-bl-md px-4 py-3 max-w-xs border border-gray-200">
                   <div className="flex items-center space-x-1 space-x-reverse">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
+                    <span className="text-xs text-gray-500 mr-2">המאמן מכין תשובה...</span>
                   </div>
                 </div>
               </div>
@@ -224,20 +302,28 @@ const App = () => {
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="כתוב הודעה..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-full resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder={isOnline ? "כתוב הודעה..." : "אין חיבור לאינטרנט"}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-full resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   rows="1"
-                  disabled={isLoading}
+                  disabled={isLoading || !isOnline}
+                  maxLength={2000}
                 />
+                <div className="text-xs text-gray-500 mt-1 px-4">
+                  {newMessage.length}/2000 תווים
+                </div>
               </div>
               <button
                 onClick={sendMessage}
-                disabled={!newMessage.trim() || isLoading}
-                className="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!newMessage.trim() || isLoading || !isOnline}
+                className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center hover:from-blue-600 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-105"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>
